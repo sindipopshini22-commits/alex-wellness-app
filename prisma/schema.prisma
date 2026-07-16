@@ -1,0 +1,200 @@
+// Alex — Mental Wellness Platform
+// Prisma schema for the multi-relational Postgres backend.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String           @id @default(uuid())
+  email                  String?          @unique
+  passwordHash           String?
+  role                   UserRole         @default(PATIENT)
+  isAnonymous            Boolean          @default(false)
+  hasCompletedOnboarding Boolean          @default(false)
+  isPremium              Boolean          @default(false)
+  ageVerified            Boolean          @default(false)
+  passwordResetToken     String?          @unique
+  passwordResetExpiresAt DateTime?
+  createdAt              DateTime         @default(now())
+  deletedAt              DateTime?
+  profile                UserProfile?
+  chatSessions           ChatSession[]
+  courseProgress         CourseProgress[]
+  journalEntries         JournalEntry[]
+  legalAcceptances       LegalAcceptance[]
+  assignedReviews        ClinicalReview[] // clinician's review assignments
+}
+
+enum UserRole {
+  PATIENT
+  CLINICIAN
+  ADMIN
+}
+
+model ClinicalReview {
+  id                 String           @id @default(uuid())
+  riskAssessmentId   String           @unique
+  riskAssessment     RiskAssessmentLog @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
+  reviewerId         String
+  reviewer           User             @relation(fields: [reviewerId], references: [id])
+  reviewNotes        String?          @db.Text
+  isAdequate         Boolean?         // null = unreviewed, true = appropriate, false = needs retraining
+  retrainingSignal   Boolean          @default(false) // flagged for model retraining
+  reviewedAt         DateTime?
+  assignedAt         DateTime         @default(now())
+
+  @@index([reviewerId])
+  @@index([isAdequate])
+}
+
+model LegalAcceptance {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType  String   // "EULA" | "PRIVACY" | "COOKIE_BANNER"
+  version       String   // semver, e.g. "1.0.0"
+  acceptedAt    DateTime @default(now())
+  ipHash        String?  // hashed for audit, never stored raw
+
+  @@index([userId, documentType, version])
+}
+
+model UserProfile {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username              String?   @unique
+  age                   Int
+  sex                   String    @default("")
+  primaryFocus          String    @default("")
+  // WHO-aligned dimensional fields (replaces the clinical intake feel)
+  currentExperience     String?   // "How have you been feeling lately?" — emotional experience
+  hardestPart           String?   // "What part of daily life feels hardest?" — functional domain
+  supportSystem         String?   // "Who's in your corner?" — social + professional support
+  hasProfessionalHelp   Boolean   @default(false)
+  hasFeltThisWayBefore  Boolean   @default(false)
+  updatedAt             DateTime  @updatedAt
+}
+
+model ChatSession {
+  id              String               @id @default(uuid())
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        ChatMessage[]
+  memoryBank      LongTermMemoryBank?
+  riskAssessments RiskAssessmentLog[]
+  createdAt       DateTime             @default(now())
+}
+
+model ChatMessage {
+  id           String      @id @default(uuid())
+  sessionId    String
+  session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender       SenderType
+  content      String      @db.Text
+  customType   String?
+  payload      Json?
+  isReported   Boolean     @default(false)
+  report       ReportedMessage?
+  attachments  ChatAttachment[]
+  createdAt    DateTime    @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+model ChatAttachment {
+  id        String      @id @default(uuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  filename  String
+  filepath  String
+  mimeType  String
+  size      Int         // bytes
+  createdAt DateTime    @default(now())
+
+  @@index([messageId])
+}
+
+enum SenderType {
+  USER
+  BOT
+}
+
+model ReportedMessage {
+  id        String   @id @default(uuid())
+  messageId String   @unique
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
+model JournalEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  content   String   @db.Text
+  mood      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model CourseProgress {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleId    String
+  currentStep Int      @default(0)
+  isCompleted Boolean  @default(false)
+  userInputs  Json?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, moduleId])
+}
+
+model LongTermMemoryBank {
+  id             String      @id @default(uuid())
+  sessionId      String      @unique
+  session        ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  runningSummary String      @db.Text
+  extractedFacts String[]
+  updatedAt      DateTime    @updatedAt
+}
+
+model RiskAssessmentLog {
+  id               String             @id @default(uuid())
+  sessionId        String
+  session          ChatSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  overallRisk      String             // "none" | "low" | "moderate" | "high" | "imminent"
+  riskDetails      Json               // Full RiskAssessment object
+  mitigationAction String             // "PROCEED_NORMAL" | "CONSTRAINED_RESPONSE" | "CRISIS_RESOURCES" | "HUMAN_ESCALATION"
+  reviewedBy       String?            // Clinician ID when reviewed
+  reviewedAt       DateTime?
+  clinicalReview   ClinicalReview?
+  createdAt        DateTime           @default(now())
+
+  @@index([sessionId, createdAt])
+  @@index([overallRisk, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String   // User ID or "system"
+  action    String   // AuditAction enum value
+  targetId  String?  // Resource being accessed (optional)
+  metadata  Json?    // Action-specific details
+  ipAddress String?  // Client IP for access pattern analysis
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
