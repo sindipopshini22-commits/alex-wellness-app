@@ -48,9 +48,9 @@ export default function Login() {
     setIsActionPending(true);
     try {
       const response = await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
-      const data = (await response.json()) as { ok?: boolean; error?: string };
+      const data = (await response.json()) as { ok?: boolean; message?: string; error?: string };
       if (!response.ok) throw new Error(data.error ?? "Unable to request a reset.");
-      setNotice("If an account exists for that email, reset instructions are on their way.");
+      setNotice(data.message ?? "If an account exists for that email, reset instructions are on their way.");
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Unable to request a reset.");
     } finally {
@@ -62,7 +62,6 @@ export default function Login() {
     setError("");
     setIsActionPending(true);
     try {
-      // The backend redirects directly to Google; we follow along
       window.location.href = "/api/auth/google";
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Unable to start Google sign-in.");
@@ -89,7 +88,7 @@ export default function Login() {
     <main className="min-h-screen bg-[#f5f0e8] text-[#192d2b]">
       <div className="grid min-h-screen lg:grid-cols-[0.85fr_1.15fr]">
         <section className="relative hidden overflow-hidden bg-[#183b39] p-10 text-[#fbf7ef] lg:flex lg:flex-col lg:justify-between xl:p-14">
-          <img src="https://cdn.builder.io/api/v1/image/assets%2F32a7e967e38946a18979c1eb330ccf9b%2Fb00043c9d416437c890ca7540f6c91fc?format=webp&width=800&height=1200" alt="Woman taking a mindful breath by the water" className="absolute inset-0 h-full w-full object-cover object-center opacity-75" />
+          <img src="https://cdn.builder.io/api/v1/image/assets%2F32a7e967e38946a18979c1eb330ccf9b%2Fb00043c9d416437c890ca7540f6c91fc?format=webp&width=800&height=1200" alt="" className="absolute inset-0 h-full w-full object-cover object-center opacity-75" />
           <div className="absolute inset-0 bg-[#183b39]/55" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#183b39]/90 via-[#183b39]/25 to-[#183b39]/45" />
           <div className="relative z-10 flex items-center gap-2 text-lg font-extrabold tracking-[-0.07em]"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#e6775b] text-sm text-[#183b39]">a</span>alex</div>

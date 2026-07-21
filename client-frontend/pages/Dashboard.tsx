@@ -1,8 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, Camera, Heart, HeartPulse, Info, Menu, MessageCircle, Mic, Paperclip, PenLine, Send, Settings, ShieldAlert, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ApiError } from "@shared/api";
+import { Link } from "react-router-dom";
 
 type Tab = "chat" | "first-aid" | "journal" | "lectures";
 
@@ -16,7 +15,6 @@ const tabs: { id: Tab; label: string; icon: typeof MessageCircle }[] = [
 const starters = ["I need to talk about something", "Help me make sense of today", "I'm feeling a little overwhelmed"];
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("chat");
   const [message, setMessage] = useState("");
   const [showDisclaimer, setShowDisclaimer] = useState(false);
@@ -27,36 +25,27 @@ export default function Dashboard() {
   const [mobileNav, setMobileNav] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // Check auth and fetch existing chat sessions on mount
   useEffect(() => {
-    const userId = localStorage.getItem("alex_user_id");
-    if (!userId) {
-      navigate("/login");
-      return;
-    }
     setShowDisclaimer(localStorage.getItem("alex_disclaimer_accepted") !== "true");
-
-    // Fetch existing sessions from the backend
+    // Try to fetch existing sessions from backend
     fetch("/api/sessions", { credentials: "include" })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch sessions");
+        if (!res.ok) throw new Error("No sessions");
         return res.json();
       })
       .then((data: { id?: string }[]) => {
         if (data && data.length > 0 && data[0].id) {
           setSessionId(data[0].id);
         }
-        // If no sessions exist, sessionId stays null
-        // User can start a new session from the backend dashboard
       })
       .catch(() => {
-        // Silent fail — user can still explore the UI
+        // No sessions yet - that's fine for new users
       });
-  }, [navigate]);
+  }, []);
 
   const sendMessage = async () => {
     const trimmed = message.trim();
-    if (!trimmed || isSending || !sessionId) return;
+    if (!trimmed || isSending) return;
     setSentMessages((current) => [...current, trimmed]);
     setMessage("");
     setIsSending(true);
@@ -70,10 +59,7 @@ export default function Dashboard() {
           sessionId: sessionId,
         }),
       });
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({})) as ApiError;
-        throw new Error(errData.error ?? "Chat request failed");
-      }
+      if (!response.ok) throw new Error("Chat request failed");
 
       // Handle streaming response
       const reader = response.body?.getReader();
@@ -83,13 +69,13 @@ export default function Dashboard() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          fullReply += decoder.decode(value, { stream: true });
+          const text = decoder.decode(value, { stream: true });
+          fullReply += text;
         }
         setAssistantReplies((current) => [...current, fullReply]);
       } else {
-        // Fallback for non-streaming
-        const data = await response.json() as { reply?: string; content?: string };
-        setAssistantReplies((current) => [...current, data.reply ?? data.content ?? "I'm here with you."]);
+        const data = await response.json() as { reply?: string };
+        setAssistantReplies((current) => [...current, data.reply ?? "I'm here with you."]);
       }
     } catch {
       setAssistantReplies((current) => [...current, "I'm having trouble connecting right now. Please try that again in a moment."]);
@@ -112,7 +98,7 @@ export default function Dashboard() {
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="border-b border-[#d3e3d8] px-5 py-4 sm:px-8"><p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-400">{tabs.find((item) => item.id === tab)?.label}</p></div>
-          {tab === "chat" ? <ChatView message={message} setMessage={setMessage} sendMessage={sendMessage} sentMessages={sentMessages} assistantReplies={assistantReplies} isSending={isSending} sessionId={sessionId} /> : <ResourceView tab={tab} />}
+          {tab === "chat" ? <ChatView message={message} setMessage={setMessage} sendMessage={sendMessage} sentMessages={sentMessages} assistantReplies={assistantReplies} isSending={isSending} /> : <ResourceView tab={tab} />}
         </section>
       </div>
       <AnimatePresence>{showDisclaimer && <Disclaimer onAccept={() => { localStorage.setItem("alex_disclaimer_accepted", "true"); setShowDisclaimer(false); }} acknowledged={acknowledged} setAcknowledged={setAcknowledged} />}</AnimatePresence>
@@ -120,8 +106,8 @@ export default function Dashboard() {
   );
 }
 
-function ChatView({ message, setMessage, sendMessage, sentMessages, assistantReplies, isSending, sessionId }: { message: string; setMessage: (value: string) => void; sendMessage: () => void; sentMessages: string[]; assistantReplies: string[]; isSending: boolean; sessionId: string | null }) {
-  return <div className="flex min-h-0 flex-1 flex-col bg-[#f8faf9] text-zinc-900"><div className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-8"><div className="flex items-center gap-3"><button className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 lg:hidden" aria-label="Back to navigation"><Menu size={18} /></button><div className="grid h-10 w-10 place-items-center rounded-full bg-[#dbe9db] text-[#183b39]"><Sparkles size={19} /></div><div><p className="text-sm font-semibold">Alex</p><p className="text-[11px] text-emerald-600">Here with you</p></div></div><button className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100" aria-label="Conversation information"><Info size={18} /></button></div><div className="flex flex-1 flex-col justify-end overflow-y-auto px-5 py-8 sm:px-8"><motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-2xl"><div className="mb-8"><p className="text-xs font-medium uppercase tracking-[0.15em] text-zinc-400">A private conversation</p><h1 className="mt-3 text-2xl font-medium tracking-[-0.03em] sm:text-3xl">Hey, it's good to have you here.</h1><p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-500">Drop something here. I won't bite — but I won't lie either.</p></div><div className="space-y-3"><div className="flex items-end gap-2"><div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#dbe9db] text-[#183b39]"><Sparkles size={13} /></div><p className="max-w-sm rounded-2xl rounded-bl-md bg-zinc-200 px-4 py-3 text-sm text-zinc-700">What's on your mind today?</p></div><div className="flex flex-wrap justify-end gap-2 pt-2">{starters.map((starter) => <button key={starter} onClick={() => setMessage(starter)} className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-600 transition-colors hover:border-emerald-500 hover:text-emerald-700">{starter}</button>)}</div></div>{sentMessages.map((item, index) => <div key={`${item}-${index}`} className="mt-4 ml-auto flex max-w-md items-end justify-end gap-2"><div className="rounded-2xl rounded-br-md bg-[#1f8a70] px-4 py-3 text-sm text-white">{item}</div>{assistantReplies[index] && <div className="mr-auto flex items-end gap-2"><div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#dbe9db] text-[#183b39]"><Sparkles size={13} /></div><p className="max-w-sm rounded-2xl rounded-bl-md bg-zinc-200 px-4 py-3 text-sm text-zinc-700">{assistantReplies[index]}</p></div>}</div>)}{isSending && <p className="mt-4 text-xs text-zinc-400">Alex is thinking...</p>}</motion.div></div><div className="border-t border-zinc-200 bg-white px-4 pb-4 pt-3 sm:px-8 sm:pb-6"><div className="mx-auto max-w-2xl"><div className="mb-2 flex items-center gap-1 text-zinc-400"><button className="rounded-full p-2 hover:bg-zinc-100" aria-label="Open camera"><Camera size={17} /></button><button className="rounded-full p-2 hover:bg-zinc-100" aria-label="Send a heart"><Heart size={17} /></button><button className="rounded-full p-2 hover:bg-zinc-100" aria-label="Record a voice note"><Mic size={17} /></button></div><div className="flex items-end gap-2 rounded-full border border-zinc-300 bg-zinc-50 p-1.5 transition-colors focus-within:border-emerald-500"><button className="mb-1 rounded-full p-2 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800" aria-label="Attach a file"><Paperclip size={18} /></button><textarea value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} rows={1} placeholder="Talk to me..." className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-zinc-800 outline-none placeholder:text-zinc-400" /><button onClick={sendMessage} disabled={!message.trim() || isSending || !sessionId} className="mb-1 rounded-full bg-[#1f8a70] p-2.5 text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Send message"><Send size={16} /></button></div><p className="mt-3 text-center text-[10px] text-zinc-400">Alex is a wellness companion, not a substitute for therapy. If you're in crisis, contact emergency services.</p></div></div></div>;
+function ChatView({ message, setMessage, sendMessage, sentMessages, assistantReplies, isSending }: { message: string; setMessage: (value: string) => void; sendMessage: () => void; sentMessages: string[]; assistantReplies: string[]; isSending: boolean }) {
+  return <div className="flex min-h-0 flex-1 flex-col bg-[#f8faf9] text-zinc-900"><div className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-8"><div className="flex items-center gap-3"><button className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 lg:hidden" aria-label="Back to navigation"><Menu size={18} /></button><div className="grid h-10 w-10 place-items-center rounded-full bg-[#dbe9db] text-[#183b39]"><Sparkles size={19} /></div><div><p className="text-sm font-semibold">Alex</p><p className="text-[11px] text-emerald-600">Here with you</p></div></div><button className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100" aria-label="Conversation information"><Info size={18} /></button></div><div className="flex flex-1 flex-col justify-end overflow-y-auto px-5 py-8 sm:px-8"><motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-2xl"><div className="mb-8"><p className="text-xs font-medium uppercase tracking-[0.15em] text-zinc-400">A private conversation</p><h1 className="mt-3 text-2xl font-medium tracking-[-0.03em] sm:text-3xl">Hey, it's good to have you here.</h1><p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-500">Drop something here. I won't bite — but I won't lie either.</p></div><div className="space-y-3"><div className="flex items-end gap-2"><div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#dbe9db] text-[#183b39]"><Sparkles size={13} /></div><p className="max-w-sm rounded-2xl rounded-bl-md bg-zinc-200 px-4 py-3 text-sm text-zinc-700">What's on your mind today?</p></div><div className="flex flex-wrap justify-end gap-2 pt-2">{starters.map((starter) => <button key={starter} onClick={() => setMessage(starter)} className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-600 transition-colors hover:border-emerald-500 hover:text-emerald-700">{starter}</button>)}</div></div>{sentMessages.map((item, index) => <div key={`${item}-${index}`} className="mt-4 ml-auto flex max-w-md items-end justify-end gap-2"><div className="rounded-2xl rounded-br-md bg-[#1f8a70] px-4 py-3 text-sm text-white">{item}</div>{assistantReplies[index] && <div className="mr-auto flex items-end gap-2"><div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#dbe9db] text-[#183b39]"><Sparkles size={13} /></div><p className="max-w-sm rounded-2xl rounded-bl-md bg-zinc-200 px-4 py-3 text-sm text-zinc-700">{assistantReplies[index]}</p></div>}</div>)}{isSending && <p className="mt-4 text-xs text-zinc-400">Alex is thinking...</p>}</motion.div></div><div className="border-t border-zinc-200 bg-white px-4 pb-4 pt-3 sm:px-8 sm:pb-6"><div className="mx-auto max-w-2xl"><div className="mb-2 flex items-center gap-1 text-zinc-400"><button className="rounded-full p-2 hover:bg-zinc-100" aria-label="Open camera"><Camera size={17} /></button><button className="rounded-full p-2 hover:bg-zinc-100" aria-label="Send a heart"><Heart size={17} /></button><button className="rounded-full p-2 hover:bg-zinc-100" aria-label="Record a voice note"><Mic size={17} /></button></div><div className="flex items-end gap-2 rounded-full border border-zinc-300 bg-zinc-50 p-1.5 transition-colors focus-within:border-emerald-500"><button className="mb-1 rounded-full p-2 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800" aria-label="Attach a file"><Paperclip size={18} /></button><textarea value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} rows={1} placeholder="Talk to me..." className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-zinc-800 outline-none placeholder:text-zinc-400" /><button onClick={sendMessage} disabled={!message.trim() || isSending} className="mb-1 rounded-full bg-[#1f8a70] p-2.5 text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Send message"><Send size={16} /></button></div><p className="mt-3 text-center text-[10px] text-zinc-400">Alex is a wellness companion, not a substitute for therapy. If you're in crisis, contact emergency services.</p></div></div></div>;
 }
 
 function ResourceView({ tab }: { tab: Exclude<Tab, "chat"> }) {

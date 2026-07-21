@@ -1,9 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Heart, ShieldCheck, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ApiError } from "@shared/api";
 
 type Option = { label: string; description: string; icon: string };
 
@@ -44,20 +42,11 @@ const supportOptions: Option[] = [
 const fade = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } };
 
 export default function Questionnaire() {
-  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({ name: "", age: "25", experience: "", hardestPart: "", support: "" });
   const [submitted, setSubmitted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
-
-  // Auth guard — redirect to login if not authenticated
-  useEffect(() => {
-    const userId = localStorage.getItem("alex_user_id");
-    if (!userId) {
-      navigate("/login");
-    }
-  }, [navigate]);
 
   const currentValue = [answers.name, answers.age, answers.experience, answers.hardestPart, answers.support][step];
   const canContinue = step === 0 ? answers.name.trim().length >= 2 : step === 1 ? Number(answers.age) >= 13 && Number(answers.age) <= 120 : Boolean(currentValue);
@@ -83,8 +72,8 @@ export default function Questionnaire() {
           supportSystem: answers.support,
         }),
       });
-      const data = (await response.json()) as { ok: boolean } | ApiError;
-      if (!response.ok || !("ok" in data)) throw new Error("error" in data ? data.error : "Unable to save your answers.");
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Unable to save your answers.");
       setSubmitted(true);
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : "Unable to save your answers. Please try again.");
@@ -99,7 +88,7 @@ export default function Questionnaire() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#090f0e] px-5 py-7 text-[#f7f5ed] sm:px-8">
-      <img src="https://cdn.builder.io/api/v1/image/assets%2F32a7e967e38946a18979c1eb330ccf9b%2F42fc77094cc946a18175e7b1b3395a8b?format=webp&width=800&height=1200" alt="A warm counseling conversation" className="absolute inset-0 h-full w-full object-cover object-center opacity-70" />
+      <img src="https://cdn.builder.io/api/v1/image/assets%2F32a7e967e38946a18979c1eb330ccf9b%2F42fc77094cc946a18175e7b1b3395a8b?format=webp&width=800&height=1200" alt="" className="absolute inset-0 h-full w-full object-cover object-center opacity-70" />
       <div className="absolute inset-0 bg-[#090f0e]/70" />
       <div className="absolute inset-0 bg-gradient-to-b from-[#090f0e]/75 via-[#090f0e]/45 to-[#090f0e]/80" />
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-lg flex-col justify-center">
