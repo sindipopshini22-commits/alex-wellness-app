@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ArrowUpRight, Eye, LockKeyhole, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LoginResponse } from "@shared/api";
+import { LoginResponse, ApiError } from "@shared/api";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,11 +26,15 @@ export default function Login() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = (await response.json()) as LoginResponse | { message: string };
-      if (!response.ok || !("token" in data)) throw new Error("message" in data ? data.message : "Unable to sign in.");
-      localStorage.setItem("alex_session_token", data.token);
+      const data = (await response.json()) as LoginResponse | ApiError;
+      if (!response.ok || !("ok" in data)) throw new Error("error" in data ? data.error : "Unable to sign in.");
+      localStorage.setItem("alex_user_id", data.userId);
       if (rememberMe) localStorage.setItem("alex_remembered_email", email);
-      navigate("/questionnaire");
+      if (data.hasCompletedOnboarding) {
+        navigate("/dashboard");
+      } else {
+        navigate("/questionnaire");
+      }
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Unable to sign in. Please try again.");
     } finally {
@@ -44,9 +48,9 @@ export default function Login() {
     setIsActionPending(true);
     try {
       const response = await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
-      const data = (await response.json()) as { message: string };
-      if (!response.ok) throw new Error(data.message);
-      setNotice(data.message);
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Unable to request a reset.");
+      setNotice("If an account exists for that email, reset instructions are on their way.");
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Unable to request a reset.");
     } finally {
@@ -58,12 +62,25 @@ export default function Login() {
     setError("");
     setIsActionPending(true);
     try {
-      const response = await fetch("/api/auth/google");
-      const data = (await response.json()) as { url?: string; message?: string };
-      if (!response.ok || !data.url) throw new Error(data.message ?? "Google sign-in is not configured yet.");
-      window.location.assign(data.url);
+      // The backend redirects directly to Google; we follow along
+      window.location.href = "/api/auth/google";
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Unable to start Google sign-in.");
+      setIsActionPending(false);
+    }
+  };
+
+  const handleAnonymousLogin = async () => {
+    setError("");
+    setIsActionPending(true);
+    try {
+      const response = await fetch("/api/auth/anon", { method: "POST" });
+      const data = (await response.json()) as { ok?: boolean; userId?: string; error?: string };
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "Unable to sign in anonymously.");
+      localStorage.setItem("alex_user_id", data.userId!);
+      navigate("/questionnaire");
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Unable to sign in anonymously.");
       setIsActionPending(false);
     }
   };
@@ -101,6 +118,8 @@ export default function Login() {
             </form>
             <div className="my-7 flex items-center gap-4 text-xs text-[#91a39d]"><span className="h-px flex-1 bg-[#cbd8ce]" />or<span className="h-px flex-1 bg-[#cbd8ce]" /></div>
             <button type="button" onClick={handleGoogleLogin} disabled={isActionPending} className="h-13 w-full rounded-full border border-[#b9c9be] bg-transparent text-sm font-medium transition-colors hover:bg-[#dbe9db] disabled:cursor-wait disabled:opacity-60">{isActionPending ? "Connecting to Google..." : "Sign in with Google"}</button>
+            <div className="my-3 flex items-center gap-4 text-xs text-[#91a39d]"><span className="h-px flex-1 bg-[#cbd8ce]" />or<span className="h-px flex-1 bg-[#cbd8ce]" /></div>
+            <button type="button" onClick={handleAnonymousLogin} disabled={isActionPending} className="h-13 w-full rounded-full border border-[#b9c9be] bg-transparent text-sm font-medium transition-colors hover:bg-[#dbe9db] disabled:cursor-wait disabled:opacity-60">{isActionPending ? "Signing in..." : "Continue anonymously"}</button>
             <p className="mt-8 text-center text-sm text-[#4c605d]">New to Alex? <Link to="/questionnaire" className="font-semibold text-[#183b39] hover:underline">Create an account</Link></p>
           </motion.div>
           <p className="pb-2 text-center text-xs text-[#91a39d]">By continuing, you agree to our terms and privacy policy.</p>

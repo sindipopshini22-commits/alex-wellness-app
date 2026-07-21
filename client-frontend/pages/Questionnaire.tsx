@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Heart, ShieldCheck, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ProfileResponse } from "@shared/api";
+import { ApiError } from "@shared/api";
 
 type Option = { label: string; description: string; icon: string };
 
@@ -43,17 +44,20 @@ const supportOptions: Option[] = [
 const fade = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } };
 
 export default function Questionnaire() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({ name: "", age: "25", experience: "", hardestPart: "", support: "" });
   const [submitted, setSubmitted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
 
+  // Auth guard — redirect to login if not authenticated
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("oauth") === "success") {
-      window.history.replaceState({}, "", "/questionnaire");
+    const userId = localStorage.getItem("alex_user_id");
+    if (!userId) {
+      navigate("/login");
     }
-  }, []);
+  }, [navigate]);
 
   const currentValue = [answers.name, answers.age, answers.experience, answers.hardestPart, answers.support][step];
   const canContinue = step === 0 ? answers.name.trim().length >= 2 : step === 1 ? Number(answers.age) >= 13 && Number(answers.age) <= 120 : Boolean(currentValue);
@@ -61,17 +65,26 @@ export default function Questionnaire() {
   const updateAnswer = (key: keyof Answers, value: string) => setAnswers((current) => ({ ...current, [key]: value }));
   const next = () => setStep((current) => Math.min(current + 1, 5));
   const back = () => setStep((current) => Math.max(current - 1, 0));
+
   const submitProfile = async () => {
     setIsSaving(true);
     setSubmissionError("");
     try {
       const response = await fetch("/api/profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(localStorage.getItem("alex_session_token") ? { Authorization: `Bearer ${localStorage.getItem("alex_session_token")}` } : {}) },
-        body: JSON.stringify({ name: answers.name, age: Number(answers.age), experience: answers.experience, hardestPart: answers.hardestPart, support: answers.support }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          username: answers.name,
+          age: Number(answers.age),
+          primaryFocus: answers.experience,
+          currentExperience: answers.experience,
+          hardestPart: answers.hardestPart,
+          supportSystem: answers.support,
+        }),
       });
-      const data = (await response.json()) as ProfileResponse | { message: string };
-      if (!response.ok || !("profile" in data)) throw new Error("message" in data ? data.message : "Unable to save your answers.");
+      const data = (await response.json()) as { ok: boolean } | ApiError;
+      if (!response.ok || !("ok" in data)) throw new Error("error" in data ? data.error : "Unable to save your answers.");
       setSubmitted(true);
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : "Unable to save your answers. Please try again.");
