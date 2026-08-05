@@ -166,10 +166,20 @@ export async function GET(req: Request) {
     try { console.error('  all keys:', Object.keys(e)); } catch {}
     console.error('[google-auth] ===== END DUMP =====');
 
+    // Surface Google's own error (e.g. "invalid_client" = wrong secret,
+    // "invalid_grant" = bad/used code) so the UI shows the real cause
+    // instead of a generic message. This is what Google returned, not an
+    // internal stack trace, so it's safe to include in production.
+    const googleError =
+      e?.response?.data?.error_description ||
+      e?.response?.data?.error ||
+      e?.code ||
+      (process.env.NODE_ENV === 'development' ? e?.message : '');
+
     return NextResponse.json(
       {
         error: 'Google sign-in failed.',
-        detail: process.env.NODE_ENV === 'development' ? e?.message : 'Check server logs for details.',
+        detail: googleError || 'Check server logs for details.',
       },
       { status: 500 }
     );
