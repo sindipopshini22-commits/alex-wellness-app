@@ -18,8 +18,10 @@ const nextConfig: NextConfig = {
         source: "/questionnaire",
         destination: "/frontend/index.html",
       },
+      // Built SPA assets are emitted with a root-absolute base ("/assets/...");
+      // map them to the actual location under /frontend/assets/...
       {
-        source: "/frontend/assets/:path*",
+        source: "/assets/:path*",
         destination: "/frontend/assets/:path*",
       },
       {
