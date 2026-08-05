@@ -23,12 +23,26 @@ export const maxDuration = 60;
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/auth/google`;
-const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI);
+
+// Build the redirect URI from the request's own origin so it always matches
+// the domain the user is actually on (local, or production). Using a
+// module-level NEXTAUTH_URL here caused redirect_uri_mismatch when the env
+// value was stale or pointed at a different domain.
+// NOTE: preview deployments get ephemeral .vercel.app URLs that won't be
+// registered in Google Cloud Console — sign-in must be tested on the real
+// production domain.
+function getRedirectUri(req: Request): string {
+  try {
+    return `${new URL(req.url).origin}/api/auth/google`;
+  } catch {
+    return `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/auth/google`;
+  }
+}
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
+  const redirectUri = getRedirectUri(req);
 
   // Step 1: No code yet — redirect to Google's consent screen
   if (!code) {
@@ -41,7 +55,7 @@ export async function GET(req: Request) {
 
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-    authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
     authUrl.searchParams.set("response_type", "code");
     authUrl.searchParams.set("scope", "openid email profile");
     authUrl.searchParams.set("access_type", "offline");
@@ -59,6 +73,8 @@ export async function GET(req: Request) {
   }
 
   try {
+    const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirectUri);
+
     // Exchange authorization code for tokens
     const { tokens } = await oauth2Client.getToken(code);
 
