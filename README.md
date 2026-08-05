@@ -130,6 +130,15 @@ npx next dev -p 3000
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+> **Two frontends:** the pre-auth pages (landing `/`, `/login`, `/questionnaire`)
+> are a separate **Vite + React SPA** in [`client-frontend/`](client-frontend/README.md).
+>
+> - **Development:** `npm run dev:all` runs Next.js (port 3000) **and** the Vite SPA
+>   (port 8080) together — use `http://localhost:8080` for the SPA pages.
+> - **Production:** the SPA is built into `public/frontend/` by
+>   `npm run build:frontend` (Vercel does this automatically via `vercel.json`).
+>   Next.js serves it on `/`, `/login`, and `/questionnaire`.
+
 ---
 
 ## Architecture
