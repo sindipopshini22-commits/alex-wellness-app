@@ -27,19 +27,23 @@ export default async function proxy(req: NextRequest) {
   const identifier = userId ?? req.headers.get("x-forwarded-for") ?? "anon";
   const scope = userId ? "user" : "ip";
 
-  // Apply rate limiting
-  const rl = await enforceRateLimit(identifier, scope);
-  if (!rl.ok) {
-    return NextResponse.json(
-      { error: "Too many requests. Please slow down." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": "60",
-          ...SECURITY_HEADERS,
-        },
-      }
-    );
+  // Apply rate limiting to API routes only. Page navigations (dashboard,
+  // settings, classroom, onboarding) must never be blocked — a user opening
+  // a page is not abuse, and the SPA fires several API calls per page load.
+  if (req.nextUrl.pathname.startsWith("/api/")) {
+    const rl = await enforceRateLimit(identifier, scope);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": "60",
+            ...SECURITY_HEADERS,
+          },
+        }
+      );
+    }
   }
 
   // Apply security headers to all responses

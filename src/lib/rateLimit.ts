@@ -49,8 +49,8 @@ function memoryLimit(key: string, limit: number) {
 export async function enforceRateLimit(identifier: string, scope: "user" | "ip") {
   const isDev = process.env.NODE_ENV === "development";
   const limit = scope === "user"
-    ? (isDev ? 500 : 30)
-    : (isDev ? 1000 : 60);
+    ? (isDev ? 500 : 300)
+    : (isDev ? 1000 : 600);
   const key = `rl:${scope}:${identifier}`;
   return redis ? upstashLimit(key, limit) : memoryLimit(key, limit);
 }

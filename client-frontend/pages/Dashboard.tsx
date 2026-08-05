@@ -1,28 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   BookOpen,
+  CheckCircle2,
   ChevronRight,
   CircleHelp,
+  Clock,
+  ExternalLink,
   Feather,
   Heart,
   Home,
+  LifeBuoy,
   Menu,
   MessageCircle,
   MoreHorizontal,
   NotebookPen,
+  Pause,
+  Play,
   Plus,
   Settings,
   Sparkles,
   Target,
   X,
 } from "lucide-react";
+import {
+  FIRST_AID_KIT,
+  LECTURES,
+  type FirstAidExercise,
+  type LectureArticle,
+} from "../lib/classroomData";
 
 const navItems = [
   { id: "today", label: "Today", icon: Home },
   { id: "conversations", label: "Conversations", icon: MessageCircle },
   { id: "journal", label: "Journal", icon: NotebookPen },
   { id: "classroom", label: "Classroom", icon: BookOpen },
+  { id: "firstaid", label: "First Aid Kit", icon: LifeBuoy },
 ] as const;
 
 type ViewId = (typeof navItems)[number]["id"];
@@ -320,7 +334,8 @@ export default function Dashboard() {
     if (id === "today") setView("today");
     else if (id === "conversations") setView("chat");
     else if (id === "journal") setView("journal");
-    else if (id === "classroom") window.location.href = "/classroom";
+    else if (id === "classroom") setView("classroom");
+    else if (id === "firstaid") setView("firstaid");
   }
 
   const conversationCount = sessions.length;
@@ -358,7 +373,7 @@ export default function Dashboard() {
           </div>
 
           <div className="mt-auto space-y-1">
-            <button onClick={() => (window.location.href = "/classroom")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-[#7b857e] transition hover:bg-[#f0f1ec] hover:text-[#3e5047]"><CircleHelp className="h-[18px] w-[18px]" strokeWidth={1.8} />How Alex works</button>
+            <button onClick={() => openNav("classroom")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-[#7b857e] transition hover:bg-[#f0f1ec] hover:text-[#3e5047]"><CircleHelp className="h-[18px] w-[18px]" strokeWidth={1.8} />How Alex works</button>
             <button onClick={() => (window.location.href = "/settings")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-[#7b857e] transition hover:bg-[#f0f1ec] hover:text-[#3e5047]"><Settings className="h-[18px] w-[18px]" strokeWidth={1.8} />Settings</button>
             <div className="mt-5 flex items-center gap-3 border-t border-[#e6e7e0] px-3 pt-5">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dce9d2] text-sm font-bold text-[#66804a]">{initials(username)}</div>
@@ -422,6 +437,14 @@ export default function Dashboard() {
                 onRefresh={refreshJournal}
                 onCompose={(content) => sendMessage(content)}
               />
+            )}
+
+            {view === "classroom" && (
+              <ClassroomView onDiscuss={(prompt) => sendMessage(prompt)} />
+            )}
+
+            {view === "firstaid" && (
+              <FirstAidView onDiscuss={(prompt) => sendMessage(prompt)} />
             )}
           </div>
         </section>
@@ -718,6 +741,360 @@ function JournalView({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Classroom view (lectures) ── */
+function ClassroomView({ onDiscuss }: { onDiscuss: (prompt: string) => void }) {
+  const [article, setArticle] = useState<LectureArticle | null>(null);
+
+  if (article) {
+    return (
+      <ArticleReader
+        article={article}
+        onBack={() => setArticle(null)}
+        onDiscuss={onDiscuss}
+      />
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-8">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8b9c62]">Classroom</p>
+        <h1 className="mt-2 font-display text-3xl tracking-[-0.05em] text-[#273b35] sm:text-4xl">Learn how your mind works</h1>
+        <p className="mt-3 max-w-lg text-sm leading-6 text-[#76827a]">Short, evidence-based guides on the experiences you told us about. Take them one section at a time.</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {LECTURES.map((lecture, index) => (
+          <button
+            key={lecture.title}
+            onClick={() => setArticle(lecture)}
+            className="group rounded-[1.5rem] border border-[#e5e6df] bg-white/70 p-6 text-left transition hover:-translate-y-0.5 hover:border-[#cbd8c1] hover:bg-white"
+          >
+            <div className="flex items-start justify-between">
+              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${index === 0 ? "bg-[#e2edf0] text-[#6b9298]" : index === 1 ? "bg-[#e5edda] text-[#779843]" : index === 2 ? "bg-[#f1e7d9] text-[#b18454]" : "bg-[#eadfe6] text-[#9b6b92]"}`}>
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <ChevronRight className="h-4 w-4 text-[#a2aba3] transition group-hover:translate-x-1" />
+            </div>
+            <h2 className="mt-4 font-display text-xl tracking-[-0.03em] text-[#304639]">{lecture.title}</h2>
+            <p className="mt-1 text-xs text-[#9aa19c]">{lecture.sections.length} sections · Source: {lecture.source}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ArticleReader({
+  article,
+  onBack,
+  onDiscuss,
+}: {
+  article: LectureArticle;
+  onBack: () => void;
+  onDiscuss: (prompt: string) => void;
+}) {
+  const [sectionIndex, setSectionIndex] = useState(0);
+  const [complete, setComplete] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const section = article.sections[sectionIndex];
+  const isLast = sectionIndex === article.sections.length - 1;
+
+  async function finish() {
+    setComplete(true);
+    if (saved) return;
+    try {
+      await fetch("/api/classroom/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ moduleId: article.title, inputs: {}, isCompleted: true }),
+      });
+      setSaved(true);
+    } catch {
+      // progress save is best-effort
+    }
+  }
+
+  if (complete) {
+    return (
+      <div className="mx-auto max-w-2xl rounded-[1.5rem] border border-[#e5e6df] bg-white/70 p-10 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e5edda] text-[#779843]"><CheckCircle2 className="h-6 w-6" /></div>
+        <h2 className="font-display text-2xl tracking-[-0.04em] text-[#304639]">You finished the guide</h2>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#76827a]">
+          That&apos;s real work — understanding how your mind operates is the first step to working with it.
+        </p>
+        <button
+          onClick={() => onDiscuss(`I just finished reading “${article.title}”. Can we talk about what stood out to me?`)}
+          className="mt-6 rounded-full bg-[#273b35] px-6 py-2.5 text-xs font-semibold text-[#d9f28b] transition hover:bg-[#344c42]"
+        >
+          Discuss with Alex
+        </button>
+        <button onClick={onBack} className="mt-4 block w-full text-xs font-semibold text-[#82905f] hover:text-[#526b42]">
+          Browse more guides
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <button onClick={onBack} className="mb-6 flex items-center gap-1.5 text-xs font-semibold text-[#82905f] hover:text-[#526b42]">
+        <ArrowLeft className="h-3.5 w-3.5" /> All guides
+      </button>
+      <div className="rounded-[1.5rem] border border-[#e5e6df] bg-white/70 p-6 sm:p-8">
+        <div className="flex items-center justify-between text-xs text-[#9aa19c]">
+          <span className="font-semibold text-[#6c7770]">{article.title}</span>
+          <span>Section {sectionIndex + 1} of {article.sections.length}</span>
+        </div>
+        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[#e5e6df]">
+          <div
+            className="h-full rounded-full bg-[#9bbd52] transition-all duration-500"
+            style={{ width: `${((sectionIndex + 1) / article.sections.length) * 100}%` }}
+          />
+        </div>
+        <h2 className="mt-6 font-display text-2xl tracking-[-0.04em] text-[#304639]">{section.heading}</h2>
+        <p className="mt-4 text-sm leading-7 text-[#4b5c52]">{section.body}</p>
+        <a
+          href={article.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-6 inline-flex items-center gap-1 text-[11px] font-semibold text-[#82905f] hover:text-[#526b42]"
+        >
+          <ExternalLink className="h-3 w-3" /> Source: {article.source}
+        </a>
+        <div className="mt-8 flex items-center justify-between">
+          <button
+            disabled={sectionIndex === 0}
+            onClick={() => setSectionIndex((c) => c - 1)}
+            className="rounded-full border border-[#e5e6df] px-5 py-2 text-xs font-semibold text-[#7b857e] transition hover:bg-white disabled:opacity-30"
+          >
+            Back
+          </button>
+          {!isLast ? (
+            <button
+              onClick={() => setSectionIndex((c) => c + 1)}
+              className="rounded-full bg-[#273b35] px-6 py-2 text-xs font-semibold text-[#d9f28b] transition hover:bg-[#344c42]"
+            >
+              Next section
+            </button>
+          ) : (
+            <button
+              onClick={finish}
+              className="rounded-full bg-[#9bbd52] px-6 py-2 text-xs font-semibold text-[#273b35] transition hover:bg-[#8aad44]"
+            >
+              Finish guide
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── First Aid Kit view ── */
+function FirstAidView({ onDiscuss }: { onDiscuss: (prompt: string) => void }) {
+  const [exercise, setExercise] = useState<FirstAidExercise | null>(null);
+
+  if (exercise) {
+    return (
+      <FirstAidRunner
+        exercise={exercise}
+        onBack={() => setExercise(null)}
+        onDiscuss={onDiscuss}
+      />
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-8">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8b9c62]">First Aid Kit</p>
+        <h1 className="mt-2 font-display text-3xl tracking-[-0.05em] text-[#273b35] sm:text-4xl">For the moments that hit hardest</h1>
+        <p className="mt-3 max-w-lg text-sm leading-6 text-[#76827a]">Step-by-step exercises to get you through an acute episode — a panic attack, an ADHD freeze, an OCD spike. Follow along, one step at a time.</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {FIRST_AID_KIT.map((item, index) => (
+          <button
+            key={item.id}
+            onClick={() => setExercise(item)}
+            className={`group rounded-[1.5rem] border bg-gradient-to-br p-6 text-left transition hover:-translate-y-0.5 hover:shadow-md ${item.color}`}
+          >
+            <div className="flex items-start justify-between">
+              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${index === 0 ? "bg-white/70 text-[#3f88a8]" : index === 1 ? "bg-white/70 text-[#8a63b8]" : index === 2 ? "bg-white/70 text-[#c08a3e]" : index === 3 ? "bg-white/70 text-[#3e9e75]" : "bg-white/70 text-[#d1607a]"}`}>
+                <LifeBuoy className="h-4 w-4" />
+              </span>
+              <ChevronRight className="h-4 w-4 text-[#a2aba3] transition group-hover:translate-x-1" />
+            </div>
+            <h2 className="mt-4 font-display text-xl tracking-[-0.03em] text-[#304639]">{item.title}</h2>
+            <p className="mt-1 text-xs text-[#7b857e]">{item.subtitle}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FirstAidRunner({
+  exercise,
+  onBack,
+  onDiscuss,
+}: {
+  exercise: FirstAidExercise;
+  onBack: () => void;
+  onDiscuss: (prompt: string) => void;
+}) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [timer, setTimer] = useState(0);
+  const [started, setStarted] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const step = exercise.steps[currentStep];
+  const isLast = currentStep === exercise.steps.length - 1;
+
+  // Count down once per second while running
+  useEffect(() => {
+    if (!isRunning || !step?.duration) return;
+    const interval = setInterval(() => {
+      setTimer((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, currentStep]);
+
+  // Stop the timer when it reaches zero
+  useEffect(() => {
+    if (isRunning && started && timer === 0) setIsRunning(false);
+  }, [isRunning, started, timer]);
+
+  function startStep() {
+    setStarted(true);
+    setTimer(step?.duration ?? 10);
+    setIsRunning(true);
+  }
+
+  function nextStep() {
+    setIsRunning(false);
+    if (isLast) {
+      setIsComplete(true);
+      if (!saved) {
+        fetch("/api/classroom/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ moduleId: exercise.id, inputs: {}, isCompleted: true }),
+        })
+          .then(() => setSaved(true))
+          .catch(() => {});
+      }
+    } else {
+      setStarted(false);
+      setCurrentStep((c) => c + 1);
+      setTimer(0);
+    }
+  }
+
+  function prevStep() {
+    setIsRunning(false);
+    setStarted(false);
+    setCurrentStep((c) => Math.max(0, c - 1));
+    setTimer(0);
+  }
+
+  if (isComplete) {
+    return (
+      <div className={`mx-auto max-w-2xl rounded-[1.5rem] border bg-gradient-to-br p-10 text-center ${exercise.color}`}>
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 text-[#5a6b52]"><CheckCircle2 className="h-6 w-6" /></div>
+        <h2 className="font-display text-2xl tracking-[-0.04em] text-[#304639]">You did it</h2>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#4b5c52]">You got through the worst of it. That took strength — you deserve to acknowledge it.</p>
+        <button
+          onClick={() => onDiscuss(`I just finished the “${exercise.title}” exercise. Can we talk about how I'm feeling now?`)}
+          className="mt-6 rounded-full bg-[#273b35] px-6 py-2.5 text-xs font-semibold text-[#d9f28b] transition hover:bg-[#344c42]"
+        >
+          Discuss with Alex
+        </button>
+        <button onClick={onBack} className="mt-4 block w-full text-xs font-semibold text-[#82905f] hover:text-[#526b42]">
+          Back to First Aid Kit
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <button onClick={onBack} className="mb-6 flex items-center gap-1.5 text-xs font-semibold text-[#82905f] hover:text-[#526b42]">
+        <ArrowLeft className="h-3.5 w-3.5" /> First Aid Kit
+      </button>
+      <div className={`rounded-[1.5rem] border bg-gradient-to-br p-6 sm:p-8 ${exercise.color}`}>
+        <h2 className="font-display text-2xl tracking-[-0.04em] text-[#304639]">{exercise.title}</h2>
+        <p className="mt-1 text-xs text-[#7b857e]">{exercise.subtitle}</p>
+
+        <div className="mt-6 flex gap-1">
+          {exercise.steps.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1 flex-1 rounded-full transition-all duration-300 ${i <= currentStep ? "bg-[#273b35]/50" : "bg-[#273b35]/10"}`}
+            />
+          ))}
+        </div>
+
+        <div className="mt-8 min-h-[110px]">
+          <p className="text-base leading-7 text-[#3e5047]">{step.instruction}</p>
+        </div>
+
+        {step.duration && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-3xl font-semibold text-[#304639]">
+              <Clock className="h-5 w-5 text-[#82905f]" />
+              {started && timer === 0 ? "Done" : `${timer > 0 ? timer : step.duration}s`}
+            </div>
+            {!isRunning && timer === 0 && (
+              <button
+                onClick={startStep}
+                className="flex items-center gap-1.5 rounded-full border border-[#273b35]/20 bg-white/70 px-4 py-1.5 text-xs font-semibold text-[#3e5047] transition hover:bg-white"
+              >
+                <Play className="h-3 w-3" /> Start timer
+              </button>
+            )}
+            {isRunning && (
+              <button
+                onClick={() => setIsRunning(false)}
+                className="flex items-center gap-1.5 rounded-full border border-[#273b35]/20 bg-white/70 px-4 py-1.5 text-xs font-semibold text-[#3e5047] transition hover:bg-white"
+              >
+                <Pause className="h-3 w-3" /> Pause
+              </button>
+            )}
+            {!isRunning && started && timer > 0 && (
+              <button
+                onClick={() => setIsRunning(true)}
+                className="flex items-center gap-1.5 rounded-full border border-[#273b35]/20 bg-white/70 px-4 py-1.5 text-xs font-semibold text-[#3e5047] transition hover:bg-white"
+              >
+                <Play className="h-3 w-3" /> Resume
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="mt-8 flex items-center justify-between">
+          <button
+            disabled={currentStep === 0}
+            onClick={prevStep}
+            className="rounded-full border border-[#273b35]/15 bg-white/60 px-5 py-2 text-xs font-semibold text-[#7b857e] transition hover:bg-white disabled:opacity-30"
+          >
+            Back
+          </button>
+          <button
+            onClick={nextStep}
+            className="rounded-full bg-[#273b35] px-6 py-2 text-xs font-semibold text-[#d9f28b] transition hover:bg-[#344c42]"
+          >
+            {isLast ? "Finish" : "Next step"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
