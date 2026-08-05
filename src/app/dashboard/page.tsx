@@ -10,6 +10,7 @@ import JournalPage from "@/components/dashboard/JournalPage";
 import ClinicalReviewDashboard from "@/components/dashboard/ClinicalReviewDashboard";
 import LegalGate from "@/components/legal/LegalGate";
 import DisclaimerGate from "@/components/auth/DisclaimerGate";
+import FallingLeaves from "@/components/dashboard/FallingLeaves";
 import Link from "next/link";
 import { LECTURES, FIRST_AID_KIT } from "@/components/classroom/moduleData";
 
@@ -83,7 +84,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
   const completed = new Set(progress.filter((p) => p.isCompleted).map((p) => p.moduleId));
 
   return (
-    <main className="mx-auto flex h-screen max-w-5xl flex-col">
+    <>
+      {/* Full-viewport coral-green background + falling leaves */}
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(160deg,#e6775b_0%,#c76a4d_22%,#4a7269_58%,#183b39_100%)]" />
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_20%_12%,rgba(246,195,183,0.28),transparent_45%)]" />
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_85%_92%,rgba(161,201,174,0.22),transparent_50%)]" />
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <FallingLeaves />
+      </div>
+
+      <main className="relative z-10 mx-auto flex h-screen max-w-5xl flex-col">
       <TopNav username={user.profile?.username} focus={focus} role={user.role} />
 
       <div className="flex flex-1 overflow-hidden">
@@ -138,7 +148,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
           </div>
         )}
       </div>
-    </main>
+      </main>
+    </>
   );
 }
 
