@@ -6,6 +6,25 @@ import { db } from "@/lib/db";
 import { getVerifiedUserId, touchSession } from "@/lib/session";
 import { writeAuditLog } from "@/lib/auditLog";
 
+// POST /api/sessions — creates a new chat session.
+// Used by the SPA dashboard to start a fresh conversation.
+export async function POST() {
+  const userId = await getVerifiedUserId();
+  if (!userId) return NextResponse.json({ error: "No session" }, { status: 401 });
+  void touchSession(userId);
+
+  let session;
+  try {
+    session = await db.chatSession.create({ data: { userId } });
+  } catch {
+    return NextResponse.json({ error: "Failed to create session." }, { status: 500 });
+  }
+
+  void writeAuditLog("CHAT.SESSION_CREATED", userId, { sessionId: session.id });
+
+  return NextResponse.json({ id: session.id, createdAt: session.createdAt.toISOString() }, { status: 201 });
+}
+
 export async function GET() {
   const userId = await getVerifiedUserId();
   if (!userId) return NextResponse.json({ error: "No session" }, { status: 401 });

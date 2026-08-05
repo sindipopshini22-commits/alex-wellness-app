@@ -7,6 +7,35 @@ import { getVerifiedUserId, touchSession } from "@/lib/session";
 import { profileSchema } from "@/lib/validation";
 import { writeAuditLog } from "@/lib/auditLog";
 
+// GET /api/profile — returns the current user's profile.
+// Used by the SPA dashboard (greeting, name, focus).
+export async function GET() {
+  const userId = await getVerifiedUserId();
+  if (!userId) return NextResponse.json({ error: "No session" }, { status: 401 });
+  void touchSession(userId);
+
+  try {
+    const profile = await db.userProfile.findUnique({ where: { userId } });
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { email: true, isAnonymous: true, hasCompletedOnboarding: true },
+    });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    return NextResponse.json({
+      userId,
+      username: profile?.username ?? null,
+      age: profile?.age ?? null,
+      primaryFocus: profile?.primaryFocus ?? null,
+      email: user.isAnonymous ? null : user.email,
+      isAnonymous: user.isAnonymous,
+      hasCompletedOnboarding: user.hasCompletedOnboarding,
+    });
+  } catch {
+    return NextResponse.json({ error: "Failed to load profile." }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   const userId = await getVerifiedUserId();
   if (!userId) return NextResponse.json({ error: "No session" }, { status: 401 });

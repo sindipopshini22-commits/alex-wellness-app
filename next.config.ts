@@ -22,6 +22,14 @@ const nextConfig: NextConfig = {
           source: "/questionnaire",
           destination: "/frontend/index.html",
         },
+        // The dashboard is part of the SPA (client-side session check).
+        // NOTE: beforeFiles rewrites override page files, so the Next.js
+        // dashboard page (src/app/dashboard/page.tsx) is intentionally
+        // shadowed by the SPA dashboard here.
+        {
+          source: "/dashboard",
+          destination: "/frontend/index.html",
+        },
       ],
       // Built SPA assets are emitted with a root-absolute base ("/assets/...");
       // map them to the actual location under /frontend/assets/...
