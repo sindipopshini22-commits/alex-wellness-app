@@ -18,6 +18,9 @@ import { db } from "@/lib/db";
 import { signSessionToken } from "@/lib/session";
 import { writeAuditLog } from "@/lib/auditLog";
 
+// Token exchange + DB lookups can exceed the default limit.
+export const maxDuration = 60;
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/auth/google`;

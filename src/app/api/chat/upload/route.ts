@@ -16,6 +16,8 @@ import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { getVerifiedUserId, touchSession } from "@/lib/session";
 
+export const maxDuration = 60; // file writes can exceed the 10s default
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",

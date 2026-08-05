@@ -12,6 +12,9 @@ import { enforceRateLimit } from "@/lib/rateLimit";
 import { getVerifiedUserId, touchSession } from "@/lib/session";
 import { interceptSchema } from "@/lib/validation";
 
+// Safety classifier makes a Groq LLM call — needs more than the 10s default.
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   const userId = await getVerifiedUserId();
   const id = userId ?? "anon-ip";

@@ -19,6 +19,8 @@ import { touchSession } from "@/lib/session";
 import { chatMessageSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
+// LLM streaming can exceed the 10s default on serverless platforms.
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const userId = await getVerifiedUserId();
