@@ -2,20 +2,20 @@
 
 A cross-platform (Android, iOS, Web) mental wellness app that uses AI as a supportive tool — grounded in WHO mhGAP guidelines and peer-reviewed research. Alex provides structured, evidence-based support exercises (CBT, ACT) with an independent safety classifier and human escalation paths.
 
-> **⚠️ Important:** Alex is a self-guided support tool. It uses AI trained on structured therapeutic techniques. It is **not a therapist**, cannot diagnose you, and is **not a substitute for professional care**. In crisis, call or text **988** (US) or **116 123** (UK Samaritans).
+> ** Important:** Alex is a self-guided support tool. It uses AI trained on structured therapeutic techniques. It is **not a therapist**, cannot diagnose you, and is **not a substitute for professional care**. In crisis, call or text **988** (US) or **116 123** (UK Samaritans).
 
 ---
 
 ## Features
 
-### 🧠 AI Chat
+###  AI Chat
 - Therapeutic conversations grounded in CBT, ACT, and WHO-endorsed techniques
 - Streaming responses from Groq-powered LLM
 - RAG (Retrieval-Augmented Generation) from a clinical knowledge base
 - **File & photo attachments** — share images, PDFs, or text files in chat
 - Session history with long-term memory compaction
 
-### 🔐 Authentication
+###  Authentication
 - Email & password registration/login
 - Anonymous sign-in
 - **Google OAuth** sign-in
@@ -23,7 +23,7 @@ A cross-platform (Android, iOS, Web) mental wellness app that uses AI as a suppo
 - HMAC-signed session tokens
 - Session timeout & sliding window extension
 
-### 🛡️ Safety System (Research-Backed)
+### Safety System (Research-Backed)
 - **Independent Safety Classifier** (D3) — separate from the conversational model, runs on every message
 - **Risk Mitigation Controller** (D4) — graduated responses: constrained, crisis resources, human escalation
 - **Context-aware crisis detection** — handles negation ("I don't want to kill myself" won't trigger false alarm)
@@ -36,16 +36,16 @@ A cross-platform (Android, iOS, Web) mental wellness app that uses AI as a suppo
 - Write & manage journal entries with mood tracking
 - Encrypted storage
 
-### 📚 Classroom
+### Classroom
 - Educational modules with structured content
 - Interactive exercises (panic breathing, depression micro-wins, thought defusion, grounding)
 - Course progress tracking
 
-### 🎙️ Voice (Optional)
+### Voice (Optional)
 - Speech-to-Text via Deepgram
 - Text-to-Speech via ElevenLabs
 
-### ⚙️ Settings & Data
+### Settings & Data
 - Profile management (WHO-aligned intake fields)
 - Account deletion (GDPR-compliant)
 - Data export
