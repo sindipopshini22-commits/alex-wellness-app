@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const userId = await getVerifiedUserId();
   if (!userId) return NextResponse.json({ error: "No session" }, { status: 401 });
 
-  void touchSession(userId);
+  void touchSession(userId).catch(() => {});
 
   let body;
   try {
@@ -154,13 +154,20 @@ export async function POST(req: Request) {
 
   const transformed = new ReadableStream({
     async start(controller) {
+      const safeEnqueue = (text: string) => {
+        try { controller.enqueue(encoder.encode(text)); } catch { /* client gone */ }
+      };
       try {
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta?.content ?? "";
           if (delta) {
             assistantText += delta;
-            controller.enqueue(encoder.encode(delta));
+            safeEnqueue(delta);
           }
+        }
+        if (!assistantText.trim()) {
+          assistantText = "I’m here with you. What’s on your mind?";
+          safeEnqueue(assistantText);
         }
         await db.chatMessage.create({
           data: { sessionId, sender: "BOT", content: assistantText, customType: "STANDARD" }
@@ -168,7 +175,19 @@ export async function POST(req: Request) {
         controller.close();
         void compactChatContextWindow(sessionId);
       } catch (e) {
-        controller.error(e);
+        // Upstream LLM failure (bad model, rate limit, outage): degrade
+        // gracefully instead of resetting the connection mid-stream.
+        console.error("[chat] stream failed", e);
+        const fallback = assistantText.trim()
+          ? assistantText
+          : "I’m here, but I had trouble reaching my thoughts just now. Could you try again in a moment?";
+        if (!assistantText.trim()) safeEnqueue(fallback);
+        try {
+          await db.chatMessage.create({
+            data: { sessionId, sender: "BOT", content: fallback, customType: "STANDARD" }
+          });
+        } catch { /* best effort */ }
+        try { controller.close(); } catch { /* already closed */ }
       }
     }
   });

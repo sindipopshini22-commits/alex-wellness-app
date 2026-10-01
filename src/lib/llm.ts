@@ -23,7 +23,7 @@ const groq = isLive
     })
   : null;
 
-const MODEL = "llama-3.3-70b-versatile";
+const MODEL = process.env.LLM_MODEL?.trim() || "openai/gpt-oss-120b";
 
 /** Strip PII from a string, returning the original if the result isn't a string. */
 function stripPii(input: string): string {

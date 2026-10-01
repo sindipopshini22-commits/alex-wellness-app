@@ -128,7 +128,7 @@ const client = isLive
   : null;
 
 // Can be configured to use a different, lighter model than the conversation model
-const CLASSIFIER_MODEL = process.env.CLASSIFIER_MODEL || "llama-3.3-70b-versatile";
+const CLASSIFIER_MODEL = process.env.CLASSIFIER_MODEL?.trim() || "openai/gpt-oss-20b";
 
 // ── Built-in crisis keyword patterns (instantly caught, never deferred) ─
 // These mirror the C-SSRS Level 4-5 signals and run BEFORE the LLM call.
