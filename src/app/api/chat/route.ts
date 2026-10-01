@@ -84,8 +84,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to load context." }, { status: 500 });
   }
 
-  const rollingStream = recent
-    .reverse()
+  // `recent` arrives newest-first (orderBy desc). Reverse ONCE into a
+  // stable oldest-first copy — never mutate `recent` in place, since it is
+  // reused below to build the LLM turns. (The old code called .reverse()
+  // twice, which fed the model a scrambled, backwards transcript.)
+  const recentOldestFirst = [...recent].reverse();
+  const rollingStream = recentOldestFirst
     .map(m => `${m.sender === "USER" ? "User" : "Alex"}: ${m.content}`)
     .join("\n");
 
@@ -115,7 +119,9 @@ export async function POST(req: Request) {
     }).catch(() => {});
   }
 
-  const basePrompt = buildSystemPrompt({ profile, memory, rollingStream });
+  // History is passed as proper message turns below, so don't also inline it
+  // into the system prompt (duplicate context confused response relevance).
+  const basePrompt = buildSystemPrompt({ profile, memory, rollingStream: "" });
   const systemPrompt = [basePrompt, ragBlock, constraintDirectives]
     .filter(Boolean)
     .join("\n\n");
@@ -141,7 +147,7 @@ export async function POST(req: Request) {
 
   const turns: ChatTurn[] = [
     { role: "system", content: systemPrompt },
-    ...recent.reverse().map(m => ({
+    ...recentOldestFirst.map(m => ({
       role: (m.sender === "USER" ? "user" : "assistant") as "user" | "assistant",
       content: m.content
     })),
